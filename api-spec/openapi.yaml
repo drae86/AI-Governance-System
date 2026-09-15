@@ -1,0 +1,587 @@
+openapi: 3.1.0
+info:
+  title: Api
+  version: 0.1.0
+  description: Master-Bot AI governance pipeline API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: candidates
+    description: AI candidate model management
+  - name: pipeline
+    description: Pipeline run management
+  - name: evaluations
+    description: Evaluation results
+  - name: governance
+    description: Governor rules and decisions
+  - name: lineage
+    description: Model lineage and history
+  - name: dashboard
+    description: Dashboard summaries and stats
+
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /candidates:
+    get:
+      operationId: listCandidates
+      tags: [candidates]
+      summary: List all AI candidates
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [proposed, training, evaluating, governing, approved, rejected, deployed]
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: List of candidates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Candidate"
+    post:
+      operationId: createCandidate
+      tags: [candidates]
+      summary: Create a new AI candidate (Architect proposes)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CandidateInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Candidate"
+
+  /candidates/{id}:
+    get:
+      operationId: getCandidate
+      tags: [candidates]
+      summary: Get a candidate by ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Candidate
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Candidate"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateCandidate
+      tags: [candidates]
+      summary: Update candidate status or metadata
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CandidateUpdate"
+      responses:
+        "200":
+          description: Updated candidate
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Candidate"
+    delete:
+      operationId: deleteCandidate
+      tags: [candidates]
+      summary: Delete a candidate
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /candidates/{id}/advance:
+    post:
+      operationId: advanceCandidate
+      tags: [candidates]
+      summary: Advance candidate to the next pipeline stage
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Candidate with updated stage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Candidate"
+
+  /candidates/{id}/reject:
+    post:
+      operationId: rejectCandidate
+      tags: [candidates]
+      summary: Reject a candidate (Governor blocks it)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RejectionInput"
+      responses:
+        "200":
+          description: Rejected candidate
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Candidate"
+
+  /evaluations:
+    get:
+      operationId: listEvaluations
+      tags: [evaluations]
+      summary: List evaluation results
+      parameters:
+        - in: query
+          name: candidateId
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of evaluations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Evaluation"
+    post:
+      operationId: createEvaluation
+      tags: [evaluations]
+      summary: Submit evaluation results for a candidate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EvaluationInput"
+      responses:
+        "201":
+          description: Created evaluation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Evaluation"
+
+  /governance/rules:
+    get:
+      operationId: listGovernanceRules
+      tags: [governance]
+      summary: List all governance rules (Constitution)
+      responses:
+        "200":
+          description: List of rules
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GovernanceRule"
+    post:
+      operationId: createGovernanceRule
+      tags: [governance]
+      summary: Create a governance rule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GovernanceRuleInput"
+      responses:
+        "201":
+          description: Created rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GovernanceRule"
+
+  /governance/rules/{id}:
+    delete:
+      operationId: deleteGovernanceRule
+      tags: [governance]
+      summary: Delete a governance rule
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /lineage:
+    get:
+      operationId: listLineageEvents
+      tags: [lineage]
+      summary: List all lineage/history events
+      parameters:
+        - in: query
+          name: candidateId
+          schema:
+            type: integer
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 100
+      responses:
+        "200":
+          description: List of lineage events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LineageEvent"
+
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [dashboard]
+      summary: Get overall pipeline statistics
+      responses:
+        "200":
+          description: Dashboard statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /dashboard/activity:
+    get:
+      operationId: getRecentActivity
+      tags: [dashboard]
+      summary: Get recent pipeline activity feed
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Recent activity
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityItem"
+
+  /dashboard/pipeline-flow:
+    get:
+      operationId: getPipelineFlow
+      tags: [dashboard]
+      summary: Get live count of candidates at each pipeline stage
+      responses:
+        "200":
+          description: Pipeline stage breakdown
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PipelineFlow"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    Candidate:
+      type: object
+      required: [id, name, stage, architectureType, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        stage:
+          type: string
+          enum: [proposed, training, evaluating, governing, approved, rejected, deployed]
+        architectureType:
+          type: string
+        datasets:
+          type: ["string", "null"]
+        hyperparameters:
+          type: ["string", "null"]
+        rejectionReason:
+          type: ["string", "null"]
+        parentId:
+          type: ["integer", "null"]
+        generation:
+          type: integer
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    CandidateInput:
+      type: object
+      required: [name, architectureType]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        description:
+          type: string
+        architectureType:
+          type: string
+        datasets:
+          type: string
+        hyperparameters:
+          type: string
+        parentId:
+          type: integer
+
+    CandidateUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        stage:
+          type: string
+          enum: [proposed, training, evaluating, governing, approved, rejected, deployed]
+        architectureType:
+          type: string
+        datasets:
+          type: string
+        hyperparameters:
+          type: string
+
+    RejectionInput:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 1
+
+    Evaluation:
+      type: object
+      required: [id, candidateId, capabilityScore, safetyScore, costScore, robustnessScore, overallScore, createdAt]
+      properties:
+        id:
+          type: integer
+        candidateId:
+          type: integer
+        capabilityScore:
+          type: number
+        safetyScore:
+          type: number
+        costScore:
+          type: number
+        robustnessScore:
+          type: number
+        latencyMs:
+          type: ["integer", "null"]
+        overallScore:
+          type: number
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    EvaluationInput:
+      type: object
+      required: [candidateId, capabilityScore, safetyScore, costScore, robustnessScore]
+      properties:
+        candidateId:
+          type: integer
+        capabilityScore:
+          type: number
+          minimum: 0
+          maximum: 100
+        safetyScore:
+          type: number
+          minimum: 0
+          maximum: 100
+        costScore:
+          type: number
+          minimum: 0
+          maximum: 100
+        robustnessScore:
+          type: number
+          minimum: 0
+          maximum: 100
+        latencyMs:
+          type: integer
+        notes:
+          type: string
+
+    GovernanceRule:
+      type: object
+      required: [id, name, category, description, severity, active, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        category:
+          type: string
+          enum: [safety, capability, cost, ethics, replication, privilege]
+        description:
+          type: string
+        severity:
+          type: string
+          enum: [critical, high, medium, low]
+        active:
+          type: boolean
+        createdAt:
+          type: string
+
+    GovernanceRuleInput:
+      type: object
+      required: [name, category, description, severity]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        category:
+          type: string
+          enum: [safety, capability, cost, ethics, replication, privilege]
+        description:
+          type: string
+          minLength: 1
+        severity:
+          type: string
+          enum: [critical, high, medium, low]
+
+    LineageEvent:
+      type: object
+      required: [id, candidateId, eventType, description, createdAt]
+      properties:
+        id:
+          type: integer
+        candidateId:
+          type: integer
+        candidateName:
+          type: string
+        eventType:
+          type: string
+          enum: [proposed, training_started, training_complete, evaluation_complete, governance_passed, governance_failed, promoted, deployed, retired]
+        description:
+          type: string
+        metadata:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    DashboardStats:
+      type: object
+      required: [totalCandidates, deployedCandidates, rejectedCandidates, activePipeline, averageSafetyScore, averageCapabilityScore, totalGenerations, rulesEnforced]
+      properties:
+        totalCandidates:
+          type: integer
+        deployedCandidates:
+          type: integer
+        rejectedCandidates:
+          type: integer
+        activePipeline:
+          type: integer
+        averageSafetyScore:
+          type: number
+        averageCapabilityScore:
+          type: number
+        totalGenerations:
+          type: integer
+        rulesEnforced:
+          type: integer
+
+    ActivityItem:
+      type: object
+      required: [id, candidateId, candidateName, eventType, description, createdAt]
+      properties:
+        id:
+          type: integer
+        candidateId:
+          type: integer
+        candidateName:
+          type: string
+        eventType:
+          type: string
+        description:
+          type: string
+        createdAt:
+          type: string
+
+    PipelineFlow:
+      type: object
+      required: [proposed, training, evaluating, governing, approved, rejected, deployed]
+      properties:
+        proposed:
+          type: integer
+        training:
+          type: integer
+        evaluating:
+          type: integer
+        governing:
+          type: integer
+        approved:
+          type: integer
+        rejected:
+          type: integer
+        deployed:
+          type: integer
